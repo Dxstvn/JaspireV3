@@ -44,11 +44,8 @@ def test_stripe_issuing_access():
     except Exception as e:
         print("An unexpected error occurred:", e)
 
-@app.route("/webhook", methods=["GET", "POST", "HEAD"])
+@app.route("/webhook", methods=["POST"])
 def stripe_webhook():
-    if request.method in ["GET", "HEAD"]:
-        # Return 200 so Stripe sees it's up
-        return "OK", 200
     # For now, just return 200 OK so Stripe sees it's valid.
     # Later, you'll parse the event, verify signatures, etc.
     print("Received a webhook request!")
