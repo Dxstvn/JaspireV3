@@ -21,12 +21,22 @@ def create_card_for_existing_cardholder():
         card = stripe.issuing.Card.create(
             cardholder=EXISTING_CARDHOLDER_ID,
             currency="usd",
-            type="physical",
+            type="physical",  # physical card => shipping is required
+            shipping={
+                "name": "Test Issuing Check Card",
+                "address": {
+                    "line1": "123 Main Street",
+                    "city": "San Francisco",
+                    "state": "CA",
+                    "country": "US",
+                    "postal_code": "94111"
+                },
+                "service": "standard"  # or 'priority'
+            },
+            # If you want manual approvals for each transaction:
             spending_controls={
-                # By default, if you set no auto-approval categories, 
-                # transactions should trigger 'issuing_authorization.request'
-                "allowed_categories": [],
-                "blocked_categories": [],
+                "allowed_categories": [],  # no auto-approved categories => triggers request
+                "blocked_categories": []
             },
             status="active"
         )
