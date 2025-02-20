@@ -14,6 +14,7 @@ stripe.api_key = "sk_test_51POM9HCY3Y4d200IE16w7oWDsWvghu1aMNY7ufrrz6tBLAeQQxmbZ
 # if __name__ == "__main__":
 #     payment_intent = create_test_payment_intent()
 #     print("Created PaymentIntent:", payment_intent.id)
+app = Flask(__name__)
 
 def test_stripe_issuing_access():
     try:
@@ -43,5 +44,16 @@ def test_stripe_issuing_access():
     except Exception as e:
         print("An unexpected error occurred:", e)
 
+@app.route("/webhook", methods=["POST"])
+def stripe_webhook():
+    # For now, just return 200 OK so Stripe sees it's valid.
+    # Later, you'll parse the event, verify signatures, etc.
+    print("Received a webhook request!")
+    return jsonify({"status": "ok"}), 200
+
+if __name__ == "__main__":
+    app.run(port=8080, debug=True)
+
 if __name__ == "__main__":
     test_stripe_issuing_access()
+    app.run(port=8080, debug=True)
