@@ -21,7 +21,7 @@ def create_card_for_existing_cardholder():
         card = stripe.issuing.Card.create(
             cardholder=EXISTING_CARDHOLDER_ID,
             currency="usd",
-            type="virtual",
+            type="physical",
             spending_controls={
                 # By default, if you set no auto-approval categories, 
                 # transactions should trigger 'issuing_authorization.request'
