@@ -21,29 +21,19 @@ def simulate_purchase():
 
     try:
         # 1. Retrieve ephemeral card details (test mode only)
-        card_details = stripe.issuing.CardDetails.create_details(
+        card_details = stripe.issuing.Card.TestHelpers.return_card(
             card=ISSUING_CARD_ID
         )
         print("Retrieved ephemeral card details for test mode:")
-        print(f"Number: {card_details.number}")
-        print(f"Exp: {card_details.exp_month}/{card_details.exp_year}")
-        print(f"CVC: {card_details.cvc}")
+        print(f"Name: {card_details.cardholder.name}")
+        print(f"ID: {card_details.id}")
+       # print(f"CVC: {card_details.cvc}")
 
         # 2. Create a PaymentIntent using that card data
         payment_intent = stripe.PaymentIntent.create(
             amount=1000,  # e.g., $10.00
             currency="usd",
-            payment_method_data={
-                "type": "card",
-                "card": {
-                    "number": card_details.number,
-                    "exp_month": card_details.exp_month,
-                    "exp_year": card_details.exp_year,
-                    "cvc": card_details.cvc,
-                },
-            },
-            confirm=True,  # confirm immediately
-            description="Test purchase with Issuing card"
+            payment_method=ISSUING_CARD_ID
         )
         print("PaymentIntent created and confirmed:")
         print(f"ID: {payment_intent.id}, Status: {payment_intent.status}")
