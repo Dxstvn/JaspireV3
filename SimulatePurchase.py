@@ -21,7 +21,7 @@ def simulate_purchase():
 
     try:
         # 1. Retrieve ephemeral card details (test mode only)
-        card_details = stripe.issuing.CardDetails.create(
+        card_details = stripe.issuing.CardDetails.create_details(
             card=ISSUING_CARD_ID
         )
         print("Retrieved ephemeral card details for test mode:")
