@@ -17,7 +17,7 @@ def add_funds_for_issuing_test():
             amount=50000,  # e.g. $500.00 (in cents)
             currency="usd",
             description="Add funds for Issuing test",
-            statement_descriptor="Issuing top-up test"
+            statement_descriptor="Issuing test"
         )
         print(f"Top-up created with ID: {topup.id}, status: {topup.status}")
 
