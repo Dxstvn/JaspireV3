@@ -18,6 +18,7 @@ def add_funds_for_issuing_test():
             currency="usd",
             description="Add funds for Issuing test",
             statement_descriptor="Issuing test"
+            destination_balance="issuing"  # Key param: ensures it goes to Issuing balance
         )
         print(f"Top-up created with ID: {topup.id}, status: {topup.status}")
 
