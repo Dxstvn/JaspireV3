@@ -22,7 +22,7 @@ def add_funds_for_issuing_test():
         print(f"Top-up created with ID: {topup.id}, status: {topup.status}")
 
         # In test mode, you can confirm the top-up immediately:
-        confirmed_topup = stripe.Topup.confirm(topup.id)
+        confirmed_topup = stripe.Topup.retrieve(topup.id)
         print(f"After confirm: {confirmed_topup.status}")
 
         # If status is 'succeeded', your account balance is now increased by amount
