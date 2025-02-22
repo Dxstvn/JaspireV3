@@ -4,4 +4,7 @@
 # Other ignores...
 __pycache__/
 venv/
-venv/
+
+#Another ignore
+.DS_Store
+

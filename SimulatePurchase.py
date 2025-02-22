@@ -18,13 +18,13 @@ def create_test_authorization():
     """
     try:
         # Using the new test_helpers API for issuing authorizations
-        authorization = stripe.Issuing.TestHelpers.Authorization.create(
+        authorization = stripe.issuing.Authorization.TestHelpers.create(
             card=ISSUING_CARD_ID,
             amount=1500,  # e.g., $15.00 in cents
             currency="usd",
             merchant_data={
                 # Merchant Category Code (e.g., 5732 = "Variety Store"), see docs
-                "category": "5732",
+                "category": "ac_refrigeration_repair",
                 "name": "Example Merchant",
                 "city": "San Francisco",
                 "country": "US"
