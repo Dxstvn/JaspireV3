@@ -70,4 +70,4 @@ def stripe_webhook():
 if __name__ == "__main__":
     # Start the Flask server on port 8080
     # Nginx should proxy https://jaspire.co/webhook -> http://127.0.0.1:8080/webhook
-    app.run(port=8080, debug=True)
+    app.run(port=8080, debug=True, host='0.0.0.0')
