@@ -61,7 +61,7 @@ def stripe_webhook():
                 return "Error", 400
         else:
             print(f"Received event: {event_type}")
-    card_info = stripe.issuing.Card.retrieve("ic_abc123")
+    card_info = stripe.issuing.Card.retrieve("ic_1Qv0iBCY3Y4d200IaTpj909a")
     print(card_info.spending_controls)
 
     return jsonify({"status": "ok"}), 200
