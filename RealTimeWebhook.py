@@ -14,6 +14,8 @@ app = Flask(__name__)
 
 @app.route("/webhook", methods=["POST"])
 def stripe_webhook():
+    card_info = stripe.issuing.Card.retrieve("ic_1Qv0iBCY3Y4d200IaTpj909a")
+    print(card_info.spending_controls)
     payload = request.data
     sig_header = request.headers.get("Stripe-Signature", None)
 
@@ -61,8 +63,7 @@ def stripe_webhook():
                 return "Error", 400
         else:
             print(f"Received event: {event_type}")
-    card_info = stripe.issuing.Card.retrieve("ic_1Qv0iBCY3Y4d200IaTpj909a")
-    print(card_info.spending_controls)
+    
 
     return jsonify({"status": "ok"}), 200
 
