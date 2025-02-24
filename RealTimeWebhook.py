@@ -8,7 +8,7 @@ load_dotenv()
 # Your test secret key
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
 # Webhook secret for verifying signatures
-STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
+STRIPE_SIGNING_SECRET = os.getenv("STRIPE_SIGNING_SECRET")
 
 stripe.api_key = STRIPE_API_KEY
 
@@ -22,7 +22,7 @@ def webhook():
     try:
         # Verify the event signature
         event = stripe.Webhook.construct_event(
-            payload, sig_header, STRIPE_WEBHOOK_SECRET
+            payload, sig_header, STRIPE_SIGNING_SECRET
         )
 
         if event['type'] == 'issuing_authorization.request':
