@@ -15,6 +15,7 @@ def simulate_purchase_with_cli():
     Simulates a purchase by triggering the issuing_authorization.request event using Stripe CLI,
     specifying a particular Issuing card.
     """
+    print(ISSUING_CARD_ID)
     try:
         # Custom merchant data for the simulation
         merchant_data = {
