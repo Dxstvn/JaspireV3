@@ -1,73 +1,53 @@
 import os
-import stripe
 from flask import Flask, request, jsonify
+import stripe
 from dotenv import load_dotenv
 
 load_dotenv()
 
+# Your test secret key
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
-STRIPE_SIGNING_SECRET = os.getenv("STRIPE_SIGNING_SECRET")
+# Webhook secret for verifying signatures
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET")
 
 stripe.api_key = STRIPE_API_KEY
 
 app = Flask(__name__)
 
-@app.route("/webhook", methods=["POST"])
-def stripe_webhook():
-    card_info = stripe.issuing.Card.retrieve("ic_1Qv0iBCY3Y4d200IaTpj909a")
-    print(card_info.spending_controls)
-    payload = request.data
-    sig_header = request.headers.get("Stripe-Signature", None)
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    payload = request.get_data()
+    sig_header = request.headers.get('Stripe-Signature')
 
-    # Verify the webhook signature if we have one
-    if STRIPE_SIGNING_SECRET and STRIPE_SIGNING_SECRET.startswith("whsec_"):
-        try:
-            event = stripe.Webhook.construct_event(
-                payload, sig_header, STRIPE_SIGNING_SECRET
-            )
-        except stripe.error.SignatureVerificationError:
-            print("Invalid signature.")
-            return "Invalid signature", 400
-        except ValueError:
-            print("Invalid payload.")
-            return "Invalid payload", 400
-    else:
-        # If no signing secret, skip verification
-        event = None
-        try:
-            event = stripe.util.json.loads(payload)
-        except:
-            print("Payload parse error.")
-            return "Bad payload", 400
+    try:
+        # Verify the event signature
+        event = stripe.Webhook.construct_event(
+            payload, sig_header, STRIPE_WEBHOOK_SECRET
+        )
 
-    if event:
-        event_type = event.get("type")
-        if event_type == "issuing_authorization.request":
-            auth_obj = event["data"]["object"]
-            merchant_data = auth_obj.get("merchant_data", {})
-            mcc = merchant_data.get("category")
-            merchant_name = merchant_data.get("name")
-            city = merchant_data.get("city")
-            country = merchant_data.get("country")
+        if event['type'] == 'issuing_authorization.request':
+            authorization = event['data']['object']
+            merchant_data = authorization['merchant_data']
+            
+            # Log the merchant data
+            print("=== Received Issuing Authorization Request ===")
+            print(f"Merchant Name: {merchant_data['name']}")
+            print(f"MCC: {merchant_data['category']}")
+            print(f"City: {merchant_data['city']}")
+            print(f"Country: {merchant_data['country']}")
+            print(f"Postal Code: {merchant_data.get('postal_code', 'N/A')}")
 
-            print("=== issuing_authorization.request ===")
-            print(f"MCC: {mcc}")
-            print(f"Merchant: {merchant_name}, City: {city}, Country: {country}")
+            # Example logic: Approve if the merchant category is for restaurants
+            if merchant_data['category'] == 'eating_places_restaurants':
+                return jsonify({'approved': True}), 200
+            else:
+                return jsonify({'approved': False, 'decline_code': 'not_allowed'}), 200
 
-            # Approve transaction
-            try:
-                stripe.issuing.Authorization.approve(auth_obj["id"])
-                print("Transaction approved!")
-            except Exception as e:
-                print("Error approving authorization:", e)
-                return "Error", 400
-        else:
-            print(f"Received event: {event_type}")
-    
+    except Exception as e:
+        print(f"Webhook error: {str(e)}")
+        return jsonify({'error': 'Webhook error'}), 400
 
-    return jsonify({"status": "ok"}), 200
+    return jsonify({}), 200
 
 if __name__ == "__main__":
-    # Start the Flask server on port 8080
-    # Nginx should proxy https://jaspire.co/webhook -> http://127.0.0.1:8080/webhook
-    app.run(port=8080, debug=True, host='0.0.0.0')
+    app.run(host='0.0.0.0', port=4242)
