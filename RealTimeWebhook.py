@@ -28,8 +28,7 @@ def webhook():
         if event['type'] == 'issuing_authorization.request':
             authorization = event['data']['object']
             merchant_data = authorization['merchant_data']
-            
-            # Log the merchant data
+
             print("=== Received Issuing Authorization Request ===")
             print(f"Merchant Name: {merchant_data['name']}")
             print(f"MCC: {merchant_data['category']}")
@@ -37,11 +36,8 @@ def webhook():
             print(f"Country: {merchant_data['country']}")
             print(f"Postal Code: {merchant_data.get('postal_code', 'N/A')}")
 
-            # Example logic: Approve if the merchant category is for restaurants
-            if merchant_data['category'] == 'eating_places_restaurants':
-                return jsonify({'approved': True}), 200
-            else:
-                return jsonify({'approved': False, 'decline_code': 'not_allowed'}), 200
+            # Always approve the transaction
+            return jsonify({'approved': True}), 200
 
     except Exception as e:
         print(f"Webhook error: {str(e)}")
@@ -50,4 +46,5 @@ def webhook():
     return jsonify({}), 200
 
 if __name__ == "__main__":
+    # Listen on all interfaces (0.0.0.0) at port 8080
     app.run(host='0.0.0.0', port=8080)
