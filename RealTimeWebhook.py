@@ -36,13 +36,21 @@ def webhook():
             print(f"Country: {merchant_data['country']}")
             print(f"Postal Code: {merchant_data.get('postal_code', 'N/A')}")
 
-            # Always approve the transaction
-            return jsonify({'approved': True}), 200
+            # Actually approve the authorization via Stripe's Issuing API
+            try:
+                stripe.issuing.Authorization.approve(authorization["id"])
+                print("Transaction approved via the Issuing API!")
+            except Exception as approve_error:
+                print(f"Error approving authorization: {approve_error}")
+
+            # Return 200 so Stripe knows we've handled the webhook
+            return jsonify({}), 200
 
     except Exception as e:
         print(f"Webhook error: {str(e)}")
         return jsonify({'error': 'Webhook error'}), 400
 
+    # Return 200 for all other event types
     return jsonify({}), 200
 
 if __name__ == "__main__":
