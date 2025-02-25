@@ -1,7 +1,6 @@
 import os
 from flask import Flask, request, jsonify
 import stripe
-from stripe import api_requestor
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -12,20 +11,6 @@ STRIPE_SIGNING_SECRET = os.getenv("STRIPE_SIGNING_SECRET")
 stripe.api_key = STRIPE_API_KEY
 
 app = Flask(__name__)
-
-def approve_authorization_in_test_mode(authorization_id):
-    """
-    Directly calls the test_helpers endpoint:
-      POST /v1/test_helpers/issuing/authorizations/{authorization_id}/approve
-    using Stripe's low-level request machinery.
-    """
-    # Create a requestor bound to your API key
-    requestor = stripe.api_requestor.APIRequestor(api_key=stripe.api_key)
-    url = f"/v1/test_helpers/issuing/authorizations/{authorization_id}/approve"
-
-    # Perform a POST request to that endpoint
-    response, _ = requestor.request("post", url)
-    return response
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
@@ -43,21 +28,32 @@ def webhook():
             auth_id = authorization["id"]
 
             print("=== Received Issuing Authorization Request ===")
-
-            # Retrieve the cardholder from the authorization
-            cardholder_info = authorization.get("cardholder", {})
-            if isinstance(cardholder_info, dict):
-                cardholder_id = cardholder_info.get("id")
+            # 1) Safely get cardholder ID (handles string or object)
+            cardholder = authorization.get("cardholder", {})
+            if isinstance(cardholder, str):
+                cardholder_id = cardholder
+            elif isinstance(cardholder, dict) and "id" in cardholder:
+                cardholder_id = cardholder["id"]
             else:
-                cardholder_id = cardholder_info  # fallback if it's a string
+                print("Error: Could not determine cardholder ID")
+                return jsonify({'error': 'Invalid cardholder data'}), 400
 
-            # 1) Fix the cardholder if disabled due to missing test KYC
+            # 2) Approve authorization immediately to meet 2-second deadline
+            try:
+                stripe.issuing.Authorization.approve(auth_id)
+                print(f"Authorization {auth_id} approved!")
+            except stripe.error.StripeError as e:
+                print(f"Error approving authorization: {e}")
+                return jsonify({'error': 'Authorization approval failed'}), 400
+
+            # 3) Asynchronously check and update cardholder (outside critical path)
             try:
                 ch = stripe.issuing.Cardholder.retrieve(cardholder_id)
-                disabled_reason = ch.get("requirements", {}).get("disabled_reason")
+                requirements_info = ch.get("requirements", {})
+                disabled_reason = requirements_info.get("disabled_reason")
+
                 if disabled_reason:
-                    print(f"Cardholder {cardholder_id} unverified: {disabled_reason}")
-                    # Provide minimal test data
+                    print(f"Cardholder {cardholder_id} has issues: {disabled_reason}")
                     stripe.issuing.Cardholder.update(
                         cardholder_id,
                         individual={
@@ -77,17 +73,9 @@ def webhook():
                         },
                         status="active"
                     )
-                    print(f"Updated cardholder {cardholder_id} for test KYC.")
-            except Exception as ch_update_error:
-                print(f"Error updating cardholder for verification: {ch_update_error}")
-
-            # 2) Approve the authorization in test mode
-            try:
-                resp = approve_authorization_in_test_mode(auth_id)
-                print(f"Approved auth {auth_id} in test mode! Response: {resp}")
-            except Exception as approve_error:
-                print(f"Error approving authorization: {approve_error}")
-                return jsonify({'error': 'Authorization approval failed'}), 400
+                    print(f"Updated cardholder {cardholder_id} post-approval.")
+            except stripe.error.StripeError as e:
+                print(f"Background cardholder update failed: {e}")
 
             return jsonify({}), 200
 
