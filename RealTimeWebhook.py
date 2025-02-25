@@ -1,7 +1,9 @@
 import os
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import stripe
 from dotenv import load_dotenv
+import json
+from django.http import HttpResponse
 
 load_dotenv()
 
@@ -14,33 +16,40 @@ app = Flask(__name__)
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    payload = request.get_data()
-    sig_header = request.headers.get('Stripe-Signature')
+    request_data = json.loads(request.data)
+    signature = request.headers.get('Stripe-Signature')
 
     
-    # Verify the event signature
-    event = stripe.Webhook.construct_event(
-        payload, sig_header, STRIPE_SIGNING_SECRET
-    )
+    # Verify webhook signature and extract the event.
+    try:
+        event = stripe.Webhook.construct_event(
+        payload=request.data, sig_header=signature, secret=STRIPE_SIGNING_SECRET
+        )
+    except ValueError as e:
+        # Invalid payload.
+        return HttpResponse(status=400)
+    except stripe.error.SignatureVerificationError as e:
+        # Invalid signature
+        return HttpResponse(status=400)
 
-    if event['type'] == 'issuing_authorization.request':
-        authorization = event['data']['object']
-        auth_id = authorization["id"]
+    if event["type"] == "issuing_authorization.request":
+        auth = event["data"]["object"]
 
         print("=== Received Issuing Authorization Request ===")
         # Approve the authorization
-    try:
-        stripe.issuing.Authorization.modify(
-            auth_id,
-            status="approved"
-        )
-        print(f"Authorization {auth_id} approved!")
-    except stripe.error.StripeError as e:
-        print(f"Error approving authorization: {e}")
-        return jsonify({'error': 'Authorization approval failed'}), 400
+        # Retrieve merchant_data
+        merchant_data = auth.get("merchant_data", {})
+
+        print("=== Received Issuing Authorization Request ===")
+        print(f"Merchant Name: {merchant_data.get('name')}")
+        print(f"MCC: {merchant_data.get('category')}")
+        print(f"City: {merchant_data.get('city')}")
+        print(f"Country: {merchant_data.get('country')}")
+        print(f"Postal Code: {merchant_data.get('postal_code', 'N/A')}")
 
     # Return a success response within 2 seconds
-    return jsonify({}), 200
+    return json.dumps({"approved": True}), 200, {"Stripe-Version": "2022-08-01", "Content-Type": "application/json"}
+  # ...handle other cases
 
     #return jsonify({}), 200
 
