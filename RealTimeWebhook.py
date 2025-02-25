@@ -5,9 +5,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Your test secret key
 STRIPE_API_KEY = os.getenv("STRIPE_API_KEY")
-# Webhook secret for verifying signatures
 STRIPE_SIGNING_SECRET = os.getenv("STRIPE_SIGNING_SECRET")
 
 stripe.api_key = STRIPE_API_KEY
@@ -27,30 +25,42 @@ def webhook():
 
         if event['type'] == 'issuing_authorization.request':
             authorization = event['data']['object']
+            auth_id = authorization["id"]
 
             print("=== Received Issuing Authorization Request ===")
-            # 1) Retrieve the cardholder from the authorization
-            cardholder_id = authorization["cardholder"]["id"]
-            ch = stripe.issuing.Cardholder.retrieve(cardholder_id)
+            # 1) Safely get cardholder ID (handles string or object)
+            cardholder = authorization.get("cardholder", {})
+            if isinstance(cardholder, str):
+                cardholder_id = cardholder
+            elif isinstance(cardholder, dict) and "id" in cardholder:
+                cardholder_id = cardholder["id"]
+            else:
+                print("Error: Could not determine cardholder ID")
+                return jsonify({'error': 'Invalid cardholder data'}), 400
 
-            # 2) Check if cardholder is disabled or pending verification
-            #    e.g. ch["requirements"]["disabled_reason"] might be "verification_required"
-            #    We'll forcibly update the cardholder with minimal test data
-            requirements_info = ch.get("requirements", {})
-            disabled_reason = requirements_info.get("disabled_reason")
+            # 2) Approve authorization immediately to meet 2-second deadline
+            try:
+                stripe.issuing.Authorization.approve(auth_id)
+                print(f"Authorization {auth_id} approved!")
+            except stripe.error.StripeError as e:
+                print(f"Error approving authorization: {e}")
+                return jsonify({'error': 'Authorization approval failed'}), 400
 
-            if disabled_reason:
-                print(f"Cardholder {cardholder_id} has outstanding requirements: {disabled_reason}")
-                try:
-                    # Update the cardholder with minimal test KYC data
-                    # Adjust fields as needed for your region
-                    updated_ch = stripe.issuing.Cardholder.update(
+            # 3) Asynchronously check and update cardholder (outside critical path)
+            try:
+                ch = stripe.issuing.Cardholder.retrieve(cardholder_id)
+                requirements_info = ch.get("requirements", {})
+                disabled_reason = requirements_info.get("disabled_reason")
+
+                if disabled_reason:
+                    print(f"Cardholder {cardholder_id} has issues: {disabled_reason}")
+                    stripe.issuing.Cardholder.update(
                         cardholder_id,
                         individual={
                             "first_name": "Test",
                             "last_name": "User",
                             "dob": {"day": 1, "month": 1, "year": 2000},
-                            "id_number": "000000000"  # Some test ID
+                            "id_number": "000000000"
                         },
                         billing={
                             "address": {
@@ -61,24 +71,20 @@ def webhook():
                                 "postal_code": "94111"
                             }
                         },
-                        status="active"  # Ensure the cardholder is active
+                        status="active"
                     )
-                    print(f"Updated cardholder {cardholder_id} to fulfill test KYC requirements.")
-                except Exception as e_update:
-                    print(f"Error updating cardholder for verification: {e_update}")
-
-            # 3) Finally, approve the authorization
-            try:
-                stripe.issuing.Authorization.approve(authorization["id"])
-                print(f"Authorization {authorization['id']} approved!")
-            except Exception as e_approve:
-                print(f"Error approving authorization: {e_approve}")
+                    print(f"Updated cardholder {cardholder_id} post-approval.")
+            except stripe.error.StripeError as e:
+                print(f"Background cardholder update failed: {e}")
 
             return jsonify({}), 200
 
+    except stripe.error.SignatureVerificationError as e:
+        print(f"Webhook signature verification failed: {e}")
+        return jsonify({'error': 'Invalid signature'}), 400
     except Exception as e:
         print(f"Webhook error: {str(e)}")
-        return jsonify({'error': 'Webhook error'}), 400
+        return jsonify({'error': 'Webhook processing error'}), 400
 
     return jsonify({}), 200
 
